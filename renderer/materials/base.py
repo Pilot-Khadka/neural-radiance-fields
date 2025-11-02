@@ -19,3 +19,11 @@ class Material(ABC):
         light_color: np.ndarray,
     ) -> np.ndarray:
         pass
+
+
+class VolumeMaterial(ABC):
+    def __init__(self, color, density, absorption, scattering):
+        self.color = np.array(color)
+        self.density = density
+        self.absorption = np.array(absorption)
+        self.scattering = scattering

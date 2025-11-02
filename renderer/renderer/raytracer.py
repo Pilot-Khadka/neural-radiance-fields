@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 
 from core.ray import Ray
 from scene.scene import Scene
@@ -15,10 +16,7 @@ class RayTracerRenderer(Renderer):
     def render(self, scene: Scene, camera: Camera) -> np.ndarray:
         image = np.zeros((self.height, self.width, 3))
 
-        for j in range(self.height):
-            if j % 50 == 0:
-                print(f"Rendering row {j}/{self.height}")
-
+        for j in tqdm(range(self.height), desc="Rendering"):
             for i in range(self.width):
                 u = i / (self.width - 1)
                 v = 1 - (j / (self.height - 1))

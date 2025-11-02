@@ -20,18 +20,20 @@ class PinholeCamera(Camera):
         self._setup_view()
 
     def _setup_view(self):
-        theta = self.fov * np.pi / 180
+        theta = np.radians(self.fov)
         h = np.tan(theta / 2)
         viewport_height = 2.0 * h
         viewport_width = self.aspect * viewport_height
 
-        w = normalize(self.position - self.look_at)
-        u = normalize(np.cross(self.up, w))
-        v = np.cross(w, u)
+        forward = normalize(self.look_at - self.position)
+        right = normalize(np.cross(forward, self.up))
+        up = np.cross(right, forward)
 
-        self.horizontal = u * viewport_width
-        self.vertical = v * viewport_height
-        self.lower_left = self.position - self.horizontal / 2 - self.vertical / 2 - w
+        self.horizontal = right * viewport_width
+        self.vertical = up * viewport_height
+        self.lower_left = (
+            self.position - self.horizontal / 2 - self.vertical / 2 + forward
+        )
 
     def get_ray(self, u: float, v: float) -> "Ray":
         direction = (
