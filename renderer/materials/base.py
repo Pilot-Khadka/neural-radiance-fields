@@ -6,9 +6,21 @@ if TYPE_CHECKING:
     from core.ray import Intersection
 
 
-class Material(ABC):
+class BaseMaterial(ABC):
     def __init__(self, color: np.ndarray):
-        self.color = color
+        self.color = np.array(color)
+
+    @abstractmethod
+    def is_volume(self) -> bool:
+        pass
+
+
+class Material(BaseMaterial):
+    def __init__(self, color: np.ndarray):
+        super().__init__(color)
+
+    def is_volume(self) -> bool:
+        return False
 
     @abstractmethod
     def shade(
@@ -21,9 +33,12 @@ class Material(ABC):
         pass
 
 
-class VolumeMaterial(ABC):
+class VolumeMaterial(BaseMaterial):
     def __init__(self, color, density, absorption, scattering):
-        self.color = np.array(color)
+        super().__init__(color)
         self.density = density
         self.absorption = np.array(absorption)
         self.scattering = scattering
+
+    def is_volume(self) -> bool:
+        return True

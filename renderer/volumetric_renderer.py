@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from scene.scene import Scene
 from lighting.light import Light
-from geometry.sphere import VolumeSphere
+from geometry.sphere import Sphere
 from cameras.pinhole import PinholeCamera
 from materials.base import VolumeMaterial
 from renderer.volumetric import VolumetricRenderer
@@ -26,7 +26,7 @@ def main():
     scene = Scene()
 
     scene.add_object(
-        VolumeSphere(
+        Sphere(
             center=np.array([0, 0.5, 0]),
             radius=0.5,
             material=VolumeMaterial(
@@ -37,7 +37,7 @@ def main():
             ),
         )
     ).add_object(
-        VolumeSphere(
+        Sphere(
             center=np.array([-1.2, 0.3, 0.5]),
             radius=0.3,
             material=VolumeMaterial(
@@ -48,7 +48,7 @@ def main():
             ),
         )
     ).add_object(
-        VolumeSphere(
+        Sphere(
             center=np.array([1, 0.4, -0.5]),
             radius=0.4,
             material=VolumeMaterial(

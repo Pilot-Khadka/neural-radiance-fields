@@ -40,3 +40,24 @@ class PinholeCamera(Camera):
             self.lower_left + u * self.horizontal + v * self.vertical - self.position
         )
         return Ray(self.position, normalize(direction))
+
+    def get_rays_batch(self, width, height):
+        u = (np.arange(width) + 0.5) / width
+        v = (np.arange(height) + 0.5) / height
+
+        u_grid, v_grid = np.meshgrid(u, v)
+
+        rays_d = (
+            self.lower_left[None, None, :]
+            + u_grid[:, :, None] * self.horizontal[None, None, :]
+            + v_grid[:, :, None] * self.vertical[None, None, :]
+            - self.position[None, None, :]
+        )
+
+        rays_d = rays_d / np.linalg.norm(rays_d, axis=2, keepdims=True)
+
+        rays_o = np.broadcast_to(
+            self.position[None, None, :], (height, width, 3)
+        ).copy()
+
+        return rays_o, rays_d

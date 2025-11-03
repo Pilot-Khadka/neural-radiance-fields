@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING, Optional
 
 
 if TYPE_CHECKING:
-    from materials.base import Material
+    from materials.base import BaseMaterial
     from core.ray import Intersection, Ray
 
 
 class Geometry(ABC):
-    def __init__(self, material: "Material"):
+    def __init__(self, material: "BaseMaterial"):
         self.material = material
 
     @abstractmethod

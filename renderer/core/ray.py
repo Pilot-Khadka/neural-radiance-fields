@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from materials.base import Material
+    from materials.base import BaseMaterial
 
 
 @dataclass
@@ -20,7 +20,7 @@ class Intersection:
     t: float
     point: np.ndarray
     normal: np.ndarray
-    material: "Material"
+    material: "BaseMaterial"
 
     def is_closer_than(self, other: Optional["Intersection"]) -> bool:
         return other is None or self.t < other.t
