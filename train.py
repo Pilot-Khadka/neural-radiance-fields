@@ -1,5 +1,10 @@
+from pathlib import Path
+import os
+
 import torch
-import torchvision.transforms as T
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nerf.model import PositionalEncoding, MLP
 from nerf.data import NeRFDataset
@@ -12,6 +17,17 @@ NUM_SAMPLES = 64
 BATCH_SIZE = 1024
 NUM_EPOCHS = 20
 LR = 5e-4
+
+
+def setup_ddp(rank, world_size):
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+
+def cleanup_ddp():
+    dist.destroy_process_group()
 
 
 def volume_render(rgb, sigma, z_vals):
@@ -95,33 +111,38 @@ def build_ray_batch(dataset, device):
     return rays_o[perm], rays_d[perm], pixels[perm]
 
 
-def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def train(rank, world_size):
+    is_distributed = world_size > 1
+
+    if is_distributed:
+        setup_ddp(rank, world_size)
+
+    device = torch.device(f"cuda:{rank}" if torch.cuda.is_available() else "cpu")
+    save_path = Path("checkpoints")
+    save_path.mkdir(exist_ok=True)
 
     data_root = get_data_path() / "lego"
-    dataset = NeRFDataset(
-        root_dir=data_root,
-        split="train",
-    )
+    dataset = NeRFDataset(root_dir=data_root, split="train")
 
     pos_enc_freq = 10
     dir_enc_freq = 4
     pos_enc = PositionalEncoding(num_freqs=pos_enc_freq, include_input=True)
     dir_enc = PositionalEncoding(num_freqs=dir_enc_freq, include_input=True)
 
-    # 3: coords: xyz
-    # 2: sin/cos
-    # 1: raw input
-
     pos_dim = 3 * (1 + 2 * pos_enc_freq)
     dir_dim = 3 * (1 + 2 * dir_enc_freq)
 
     model = MLP(pos_dim=pos_dim, dir_dim=dir_dim, hidden_dim=256).to(device)
+
+    if is_distributed:
+        model = DDP(model, device_ids=[rank])
+
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-
+    # each rank process a portion of total_steps, which are combined
     total_steps = NUM_EPOCHS * (dataset.H * dataset.W // BATCH_SIZE)
+    steps_per_rank = total_steps // world_size
 
-    for step in range(total_steps):
+    for step in range(steps_per_rank):
         img_i = torch.randint(0, len(dataset), (1,)).item()
         img, pose = dataset[img_i]
         img = img.to(device)
@@ -153,15 +174,31 @@ def main():
         loss.backward()
         optimizer.step()
 
-        if step % 500 == 0:
+        if rank == 0 and step % 500 == 0:
             psnr = -10.0 * torch.log10(loss)
-            epoch = step // (dataset.H * dataset.W // BATCH_SIZE)
+            global_step = step * world_size
             print(
-                f"epoch {epoch:03d} | step {step:06d}/{total_steps} | loss {loss.item():.4f} | psnr {psnr.item():.2f} dB"
+                f"step {global_step:06d}/{total_steps} | loss {loss.item():.4f} | psnr {psnr.item():.2f} dB"
             )
 
-    torch.save(model.state_dict(), "nerf_model.pth")
-    print("Saved nerf_model.pth")
+    if rank == 0:
+        state_dict = model.module.state_dict() if is_distributed else model.state_dict()
+        torch.save(state_dict, save_path / "nerf_model.pth")
+        print(f"Saved nerf_model.pth at {save_path}")
+
+    if is_distributed:
+        cleanup_ddp()
+
+
+def main():
+    world_size = torch.cuda.device_count()
+
+    if world_size > 1:
+        print(f"Launching DDP training on {world_size} GPUs")
+        mp.spawn(train, args=(world_size,), nprocs=world_size, join=True)
+    else:
+        print("Single GPU (or CPU) training")
+        train(rank=0, world_size=1)
 
 
 if __name__ == "__main__":
