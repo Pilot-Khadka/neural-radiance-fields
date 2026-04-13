@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 
 class PositionalEncoding:
@@ -18,26 +17,50 @@ class PositionalEncoding:
 
 
 class MLP(nn.Module):
-    def __init__(self, pos_dim, dir_dim, hidden_dim=128):
+    def __init__(
+        self,
+        pos_dim: int,
+        dir_dim: int,
+        num_layers: int = 8,
+        hidden_dim: int = 256,
+        skip_layer: int = 4,
+    ):
         super().__init__()
-        self.fc1 = nn.Linear(pos_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
-        self.sigma_out = nn.Linear(hidden_dim, 1)  # density
+        self.skip_layer = skip_layer
+        self.layers = nn.ModuleList()
+        for i in range(num_layers):
+            if i == 0:
+                self.layers.append(nn.Linear(pos_dim, hidden_dim))
+            elif i == skip_layer:
+                self.layers.append(nn.Linear(hidden_dim + pos_dim, hidden_dim))
+            else:
+                self.layers.append(nn.Linear(hidden_dim, hidden_dim))
 
+        self.sigma_out = nn.Linear(hidden_dim, 1)
         self.feature = nn.Linear(hidden_dim, hidden_dim)
-        self.fc_dir = nn.Linear(hidden_dim + dir_dim, hidden_dim)
-        self.color_out = nn.Linear(hidden_dim, 3)  # RGB
+        self.fc_dir = nn.Linear(hidden_dim + dir_dim, hidden_dim // 2)
+        self.color_out = nn.Linear(hidden_dim // 2, 3)
+
+        self._init_weights()
+
+    def _init_weights(self):
+        for layer in self.layers:
+            nn.init.xavier_normal_(layer.weight)
+            nn.init.zeros_(layer.bias)
+        for layer in [self.sigma_out, self.feature, self.fc_dir, self.color_out]:
+            nn.init.xavier_normal_(layer.weight)
+            nn.init.zeros_(layer.bias)
 
     def forward(self, x, d):
-        h = F.relu(self.fc1(x))
-        h = F.relu(self.fc2(h))
-        h = F.relu(self.fc3(h))
-        sigma = F.relu(self.sigma_out(h))
+        h = x
+        for i, layer in enumerate(self.layers):
+            if i == self.skip_layer:
+                h = torch.cat([h, x], dim=-1)
+            h = torch.relu(layer(h))
 
+        sigma = torch.nn.functional.softplus(self.sigma_out(h))
         feat = self.feature(h)
-        h_dir = torch.cat([feat, d], dim=-1)
-        h_dir = F.relu(self.fc_dir(h_dir))
+        h_dir = torch.relu(self.fc_dir(torch.cat([feat, d], dim=-1)))
         rgb = torch.sigmoid(self.color_out(h_dir))
         return rgb, sigma
 
@@ -55,7 +78,9 @@ if __name__ == "__main__":
     d_encoded = dir_enc.encode(directions)
 
     model = MLP(
-        pos_dim=x_encoded.shape[-1], dir_dim=d_encoded.shape[-1], hidden_dim=128
+        pos_dim=x_encoded.shape[-1],
+        dir_dim=d_encoded.shape[-1],
+        hidden_dim=128,
     )
 
     rgb, sigma = model(x_encoded, d_encoded)

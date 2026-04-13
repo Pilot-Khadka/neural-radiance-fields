@@ -14,7 +14,7 @@ from nerf.utils import get_data_path
 NEAR = 2.0
 FAR = 6.0
 NUM_SAMPLES = 64
-BATCH_SIZE = 1024
+BATCH_SIZE = 512
 NUM_EPOCHS = 20
 LR = 5e-4
 
@@ -174,7 +174,7 @@ def train(rank, world_size):
         loss.backward()
         optimizer.step()
 
-        if rank == 0 and step % 500 == 0:
+        if rank == 0 and step > 1 and step % 500 == 0:
             psnr = -10.0 * torch.log10(loss)
             global_step = step * world_size
             print(
