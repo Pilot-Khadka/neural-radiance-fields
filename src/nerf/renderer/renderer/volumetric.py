@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 from numba import jit
 from tqdm import tqdm
@@ -17,7 +19,14 @@ def sample_density_at_point(point, centers, radii, densities):
 
 
 @jit(nopython=True)
-def calculate_shadow(start_pos, light_direction, centers, radii, densities, step_size):
+def calculate_shadow(
+    start_pos,
+    light_direction,
+    centers,
+    radii,
+    densities,
+    step_size,
+):
     """March toward light to see how much is blocked by volumes."""
     opacity = 0.0
     distance = 0.0
@@ -38,7 +47,13 @@ def calculate_shadow(start_pos, light_direction, centers, radii, densities, step
 
 @jit(nopython=True)
 def calculate_lighting(
-    position, light_dirs, light_colors, centers, radii, densities, step_size
+    position,
+    light_dirs,
+    light_colors,
+    centers,
+    radii,
+    densities,
+    step_size,
 ):
     """Sum light from all sources, accounting for shadows."""
     total_light = np.zeros(3)
@@ -68,7 +83,7 @@ def march_ray(
     light_dirs,
     light_colors,
     background,
-    step_size,
+    step_size: float,
 ):
     """Walk along the ray, accumulating color from volumes."""
     accumulated_color = np.zeros(3)
@@ -126,7 +141,12 @@ class VolumetricRenderer:
     """Renders 3D volumes (clouds, smoke, fog) by marching rays through space."""
 
     def __init__(
-        self, width, height, num_samples=64, step_size=0.05, background_color=None
+        self,
+        width: int,
+        height: int,
+        num_samples: int = 64,
+        step_size: float = 0.05,
+        background_color: Optional[np.ndarray] = None,
     ):
         self.width = width
         self.height = height

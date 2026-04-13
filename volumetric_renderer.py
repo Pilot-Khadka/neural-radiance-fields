@@ -1,12 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .scene.scene import Scene
-from .lighting.light import Light
-from .geometry.sphere import Sphere
-from .cameras.pinhole import PinholeCamera
-from .materials.base import VolumeMaterial
-from .renderer.volumetric import VolumetricRenderer
+from nerf.renderer.scene.scene import Scene
+from nerf.renderer.lighting.light import Light
+from nerf.renderer.geometry.sphere import Sphere
+from nerf.renderer.cameras.pinhole import PinholeCamera
+from nerf.renderer.materials.base import VolumeMaterial
+from nerf.renderer.renderer.volumetric import VolumetricRenderer
 
 
 def main():

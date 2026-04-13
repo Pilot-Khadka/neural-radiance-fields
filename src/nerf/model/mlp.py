@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 
@@ -17,7 +17,7 @@ class PositionalEncoding:
         return torch.cat(out, dim=-1)
 
 
-class NeRF(nn.Module):
+class MLP(nn.Module):
     def __init__(self, pos_dim, dir_dim, hidden_dim=128):
         super().__init__()
         self.fc1 = nn.Linear(pos_dim, hidden_dim)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     x_encoded = pos_enc.encode(positions)
     d_encoded = dir_enc.encode(directions)
 
-    model = NeRF(
+    model = MLP(
         pos_dim=x_encoded.shape[-1], dir_dim=d_encoded.shape[-1], hidden_dim=128
     )
 

@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .scene.scene import Scene
-from .lighting.light import Light
-from .geometry.plane import Plane
-from .geometry.sphere import Sphere
-from .cameras.pinhole import PinholeCamera
-from .materials.phong import PhongMaterial
-from .renderer.raytracer import RayTracerRenderer
+from nerf.renderer.scene.scene import Scene
+from nerf.renderer.lighting.light import Light
+from nerf.renderer.geometry.plane import Plane
+from nerf.renderer.geometry.sphere import Sphere
+from nerf.renderer.cameras.pinhole import PinholeCamera
+from nerf.renderer.materials.phong import PhongMaterial
+from nerf.renderer.renderer.raytracer import RayTracerRenderer
 
 
 def main():

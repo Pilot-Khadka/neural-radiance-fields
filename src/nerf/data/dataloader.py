@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 import json
 from PIL import Image
@@ -10,11 +11,15 @@ from torch.utils.data import Dataset
 
 
 class NeRFDataset(Dataset):
-    def __init__(self, root_dir, split="train", transform=None):
-        self.root_dir = os.path.join(root_dir, split)
+    def __init__(self, root_dir: Path, split="train", transform=None):
+        self.root_dir = root_dir / split
+        if transform is None:
+            transform = T.ToTensor()
+
         self.transform = transform
-        json_file = os.path.join(root_dir, f"transforms_{split}.json")
-        with open(json_file, "r") as f:
+
+        file_path = root_dir / f"transforms_{split}.json"
+        with open(file_path, "r") as f:
             meta = json.load(f)
         self.image_paths = [
             os.path.join(root_dir, frame["file_path"] + ".png")
@@ -25,13 +30,16 @@ class NeRFDataset(Dataset):
             for frame in meta["frames"]
         ]
 
+        sample = Image.open(self.image_paths[0])
+        self.W, self.H = sample.size
+        self.focal = 0.5 * self.W / np.tan(0.5 * meta["camera_angle_x"])
+
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, index):
         img = Image.open(self.image_paths[index]).convert("RGB")
-        if self.transform:
-            img = self.transform(img)
+        img = self.transform(img)
         pose = self.poses[index]
         return img, pose
 
@@ -105,6 +113,8 @@ def plot_camera_positions_3d(dataset, num_cameras=None, figsize=(15, 15)):
 
 
 if __name__ == "__main__":
+    from nerf.utils import get_data_path
+
     transform = T.Compose(
         [
             T.Resize((400, 400)),
@@ -112,7 +122,8 @@ if __name__ == "__main__":
         ]
     )
 
-    dataset = NeRFDataset(root_dir="lego", split="train", transform=transform)
+    data_root = get_data_path() / "lego"
+    dataset = NeRFDataset(root_dir=data_root, split="train", transform=transform)
 
     print(f"Loaded {len(dataset)} images with camera poses")
 
