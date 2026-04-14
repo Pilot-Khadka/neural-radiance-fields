@@ -1,5 +1,8 @@
 # dataset folders
 dataset/
+*.mp4
+*.pth
+*.pt
 
 
 # Byte-compiled / optimized / DLL files
