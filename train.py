@@ -71,7 +71,14 @@ def get_rays(H, W, focal, pose):
     return rays_o, rays_d
 
 
-def sample_points(rays_o, rays_d, near, far, num_samples, perturb=True):
+def sample_points(
+    rays_o,
+    rays_d,
+    near,
+    far,
+    num_samples,
+    perturb=True,
+):
     # creates a sample index
     # z(t) = (1-t) * neat + t * far
     # produces evely spaced depth samples

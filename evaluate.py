@@ -36,6 +36,7 @@ def render_image(
 ):
     """
     Renders one full image by splitting rays into chunks to stay within memory.
+
     perturb=False so the output is deterministic at eval/render time.
     """
     rays_o, rays_d = get_rays(H, W, focal, pose.to(device))

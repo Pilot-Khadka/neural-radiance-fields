@@ -8,8 +8,10 @@
          playsinline>
   </video>
 </p>
+A minimal, from-scratch implementation of NeRF for volumetric rendering and view synthesis.
 
-dataset: https://www.matthewtancik.com/nerf
+> **Note:**
+> The wave-like distortion in the LEGO rotation comes from using **fixed-size raymarching steps** in the analytic renderer.
 
 ### **installation**
 First install **PyTorch** appropriate for your system. Check your CUDA version with `nvidia-smi`, then:
@@ -26,6 +28,36 @@ Then install the rest of the dependencies:
 ```bash
 uv sync && source .venv/bin/activate
 ```
+
+### **dataset preparation**
+This project uses the NeRF synthetic dataset from:
+🔗 [https://www.matthewtancik.com/nerf](https://www.matthewtancik.com/nerf)
+
+Place the scenes inside the `dataset/` directory, e.g.:
+
+```
+dataset/
+└── lego/
+    ├── images/
+    ├── transforms_train.json
+    ├── transforms_test.json
+    └── transforms_val.json
+```
+
+`NeRFDataset` expects the standard `transforms_*.json` structure.
+
+**train NeRF**
+
+```bash
+python train.py
+```
+
+**Evaluate a trained NeRF**
+
+```bash
+python evaluate.py
+```
+Outputs include PSNR metrics and rendered trajectories
 
 ### **references**
 - Mildenhall, Ben, Pratul P. Srinivasan, Matthew Tancik, Jonathan T. Barron, Ravi Ramamoorthi, and Ren Ng.
