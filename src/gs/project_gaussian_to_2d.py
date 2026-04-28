@@ -1,55 +1,15 @@
 import torch
 
-
-# from gs.camera import Camera
-from matplotlib import cm
-import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
-
+from gs.camera import SimpleCamera, Camera
 from gs.gaussian import GaussianModel
+from gs.quaternion import quaternion_to_rot
+from gs.plotting import plot_gaussians_depth
 
 
-class Camera:
-    def __init__(self):
-        self.fx = 500.0
-        self.fy = 500.0
-        self.cx = 256.0
-        self.cy = 256.0
-
-        self.R = torch.eye(3)
-        # because the gaussians are centered around the origin
-        # if the camera is at the center, many gaussians will be behind the camera
-        self.t = torch.tensor([0.0, 0.0, 3.0])
-
-
-def quaternion_to_rot(rot: torch.Tensor) -> torch.Tensor:
-    """
-    Converts unit quaternions (w,x,y,z) to rotation matrices.
-
-    inputs:
-        rot: (N, 4)
-    outputs:
-        rot matrix: (N, 3, 3)
-    """
-    w, x, y, z = rot.unbind(-1)
-
-    return torch.stack(
-        [
-            1 - 2 * (y * y + z * z),
-            2 * (x * y - w * z),
-            2 * (x * z + w * y),
-            2 * (x * y + w * z),
-            1 - 2 * (x * x + z * z),
-            2 * (y * z - w * x),
-            2 * (x * z - w * y),
-            2 * (y * z + w * x),
-            1 - 2 * (x * x + y * y),
-        ],
-        dim=-1,
-    ).reshape(-1, 3, 3)
-
-
-def calculate_covariance(scale: torch.Tensor, rotation: torch.Tensor) -> torch.Tensor:
+def calculate_covariance(
+    scale: torch.Tensor,
+    rotation: torch.Tensor,
+) -> torch.Tensor:
     """
     Given scale and rotation from the gaussian, built the covariance matrix
         sum = (R.S) (R.S)^T = R.diag(S^2).(R^T)
@@ -73,6 +33,9 @@ def project_gaussians(
     cov3d: torch.Tensor,
     camera: Camera,
 ):
+    """
+    Bring the gaussians to camera space first, then project them onto screen
+    """
 
     R_cam = camera.R  # (3, 3)
     t_cam = camera.t  # (3,)
@@ -81,7 +44,8 @@ def project_gaussians(
     p_cam = xyz @ R_cam.T + t_cam  # (N, 3)
     X, Y, Z = p_cam.unbind(-1)
 
-    valid = Z > 0.1
+    min_depth = 0.01
+    valid = Z > min_depth
     u = camera.fx * X / Z + camera.cx
     v = camera.fy * Y / Z + camera.cy
     mean2d = torch.stack([u, v], dim=-1)  # (N, 2)
@@ -108,67 +72,10 @@ def project_gaussians(
     return mean2d, cov2d, Z, valid
 
 
-def plot_gaussians_depth(mean2d, cov2d, depth, valid, max_points=500):
-    """
-    Visualize 2D Gaussians as ellipses colored by depth.
-
-    mean2d : (N, 2)
-    cov2d  : (N, 2, 2)
-    depth  : (N,)
-    valid  : (N,)
-    """
-
-    # Keep only valid points
-    mean2d = mean2d[valid]
-    cov2d = cov2d[valid]
-    depth = depth[valid]
-
-    # Subsample if too many points
-    if mean2d.shape[0] > max_points:
-        idx = torch.randperm(mean2d.shape[0])[:max_points]
-        mean2d = mean2d[idx]
-        cov2d = cov2d[idx]
-        depth = depth[idx]
-
-    dnorm = (depth - depth.min()) / (depth.max() - depth.min() + 1e-8)
-    cmap = cm.get_cmap("viridis")
-
-    fig, ax = plt.subplots(figsize=(6, 6))
-    for i in range(mean2d.shape[0]):
-        mu = mean2d[i]
-        cov = cov2d[i]
-
-        # Eigen decomposition
-        eigvals, eigvecs = torch.linalg.eigh(cov)
-        eigvals = torch.clamp(eigvals, min=1e-8)
-
-        width = 2 * torch.sqrt(eigvals[1])
-        height = 2 * torch.sqrt(eigvals[0])
-
-        angle = torch.atan2(eigvecs[1, 1], eigvecs[0, 1]) * 180.0 / torch.pi
-
-        color = cmap(dnorm[i].item())
-
-        ellipse = Ellipse(
-            xy=mu.detach().cpu().numpy(),
-            width=width.item(),
-            height=height.item(),
-            angle=angle.item(),
-            fill=False,
-            edgecolor=color,
-            linewidth=1.5,
-        )
-        ax.add_patch(ellipse)
-
-    ax.set_aspect("equal")
-    ax.set_title("Projected 2D Gaussians (Colored by Depth)")
-    ax.set_xlim(0, 512)
-    ax.set_ylim(512, 0)  # invert Y to match image coordinates
-    plt.show()
-
-
 def main():
     N = 1000
+    min_depth = 1.0
+    max_depth = 4.0
     model = GaussianModel(n_points=N)
 
     xyz = model.xyz
@@ -178,7 +85,7 @@ def main():
     rotation = model.get_rotation()
 
     cov3d = calculate_covariance(scale=scale, rotation=rotation)
-    camera = Camera()
+    camera = SimpleCamera()
 
     mean2d, cov2d, depth, valid = project_gaussians(xyz, cov3d, camera)
     plot_gaussians_depth(mean2d, cov2d, depth, valid)
@@ -191,8 +98,8 @@ def main():
     eigvals = torch.linalg.eigvals(cov2d[valid])
     print("Cov2D eigenvalues (real part):", eigvals.real.mean())
 
-    near = cov2d[(depth < 1.0) & valid]
-    far = cov2d[(depth > 4.0) & valid]
+    near = cov2d[(depth < min_depth) & valid]
+    far = cov2d[(depth > max_depth) & valid]
 
     print(near.mean(), far.mean())
 
